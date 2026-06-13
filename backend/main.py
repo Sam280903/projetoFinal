@@ -153,27 +153,27 @@ async def get_similar(session_id: str):
 
 # ── Frontend estático (Next.js output: export) ────────────────────────────────
 if _has_static:
-    # Assets JS/CSS gerados pelo Next.js
     app.mount("/_next", StaticFiles(directory=os.path.join(OUT_DIR, "_next")), name="next-assets")
 
-    @app.get("/")
-    async def index():
-        return _page("index.html")
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        path = full_path.strip("/")
 
-    @app.get("/analysis/")
-    async def analysis_page():
-        return _page("analysis/index.html")
+        # Arquivo exato (favicon, svg, etc.)
+        if path:
+            exact = os.path.join(OUT_DIR, path)
+            if os.path.isfile(exact):
+                return FileResponse(exact)
 
-    @app.get("/historico/")
-    async def historico_page():
-        return _page("historico/index.html")
+        # /resultado/{id} → serve o template placeholder (JS usa a URL real)
+        parts = path.split("/")
+        if parts[0] == "resultado" and len(parts) >= 2:
+            return FileResponse(os.path.join(OUT_DIR, "resultado", "placeholder", "index.html"))
 
-    @app.get("/resultado/{session_id}/")
-    async def resultado_page(session_id: str):
-        # Servir o template gerado para o placeholder; o JS usa a URL real
-        return _page("resultado/placeholder/index.html")
+        # Tenta index.html dentro do diretório correspondente
+        index = os.path.join(OUT_DIR, path, "index.html") if path else os.path.join(OUT_DIR, "index.html")
+        if os.path.isfile(index):
+            return FileResponse(index)
 
-    # Arquivos públicos (favicon, svg, etc.)
-    @app.get("/{filename}")
-    async def public_file(filename: str):
-        return _page(filename)
+        # Fallback → página inicial
+        return FileResponse(os.path.join(OUT_DIR, "index.html"))
