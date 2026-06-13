@@ -1,2 +1,2 @@
-:HL["/_next/static/chunks/0qg16ikybl3.d.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"resultado","param":null,"prefetchHints":0,"slots":{"children":{"name":"id","param":{"type":"d","key":"placeholder","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}},"staleTime":300,"buildId":"-YX2fwo4Dk2Fl1deT5ngJ"}
+:HL["/_next/static/chunks/082~jgft6cxh5.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"resultado","param":null,"prefetchHints":0,"slots":{"children":{"name":"id","param":{"type":"d","key":"placeholder","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}},"staleTime":300,"buildId":"TLaqt9L8myO-WQb5Xg4Jn"}

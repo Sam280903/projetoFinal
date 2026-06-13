@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -18,8 +18,42 @@ export default function Home() {
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setSpeechSupported(!!(typeof window !== "undefined" && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)));
+  }, []);
+
+  function toggleVoice() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    let finalTranscript = idea;
+    recognition.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
+        else interim = e.results[i][0].transcript;
+      }
+      setIdea(finalTranscript + interim);
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  }
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -162,7 +196,27 @@ export default function Home() {
           </div>
 
           <div className="flex items-center justify-between px-4 pb-3">
-            <span className="text-zinc-500 text-sm">{idea.length} caracteres</span>
+            <div className="flex items-center gap-3">
+              <span className="text-zinc-500 text-sm">{idea.length} caracteres</span>
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  title={listening ? "Parar gravação" : "Falar ideia"}
+                  className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-all duration-200 ${
+                    listening
+                      ? "bg-red-500/20 border-red-500/50 text-red-400 animate-pulse"
+                      : "border-zinc-700 text-zinc-400 hover:border-indigo-500 hover:text-indigo-400"
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                  {listening ? "Gravando..." : "Falar"}
+                </button>
+              )}
+            </div>
             <button
               type="submit"
               disabled={!idea.trim() || loading}
