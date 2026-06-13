@@ -24,13 +24,21 @@ export default function ResultadoClient() {
   const [score, setScore] = useState<any>(null);
   const [similar, setSimilar] = useState<Similar[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<"report" | "debate" | "score">("report");
 
   useEffect(() => {
-    if (!id) return;
-    fetch(`${API_URL}/session/${id}`)
-      .then((r) => r.json())
+    const sessionId = typeof window !== "undefined"
+      ? window.location.pathname.split("/resultado/")[1]?.split("/")[0] || id
+      : id;
+    if (!sessionId || sessionId === "placeholder") return;
+    fetch(`${API_URL}/session/${sessionId}`)
+      .then((r) => {
+        if (r.status === 404) { setNotFound(true); return null; }
+        return r.json();
+      })
       .then((data) => {
+        if (!data) return;
         setSession(data);
         if (data.score) {
           try {
@@ -39,13 +47,18 @@ export default function ResultadoClient() {
           } catch {}
         }
       })
-      .catch(() => router.push("/historico"))
+      .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
 
-    fetch(`${API_URL}/similar/${id}`)
-      .then((r) => r.json())
-      .then((data) => setSimilar(data.similar || []))
-      .catch(() => {});
+    const similarId = typeof window !== "undefined"
+      ? window.location.pathname.split("/resultado/")[1]?.split("/")[0] || id
+      : id;
+    if (similarId && similarId !== "placeholder") {
+      fetch(`${API_URL}/similar/${similarId}`)
+        .then((r) => r.json())
+        .then((data) => setSimilar(data.similar || []))
+        .catch(() => {});
+    }
   }, [id]);
 
   if (loading) {
@@ -53,6 +66,24 @@ export default function ResultadoClient() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
       </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center px-4">
+        <div className="glass-card rounded-2xl p-10 max-w-md text-center">
+          <div className="text-4xl mb-4">🔍</div>
+          <h2 className="text-xl font-bold text-white mb-2">Resultado não encontrado</h2>
+          <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
+            Esta análise não está mais disponível. O servidor pode ter sido reiniciado
+            ou o link expirou. Execute uma nova análise para obter um novo resultado.
+          </p>
+          <a href="/" className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold px-6 py-3 rounded-xl text-sm">
+            Nova análise →
+          </a>
+        </div>
+      </main>
     );
   }
 

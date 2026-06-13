@@ -147,6 +147,7 @@ async def get_session(session_id: str):
         "report": session.get("report"),
         "has_debate": session.get("debate") is not None,
         "debate": session.get("debate"),
+        "score": session.get("score"),
     }
 
 
