@@ -39,18 +39,26 @@ function AnalysisContent() {
   const [error, setError] = useState<string | null>(null);
   const [warming, setWarming] = useState(false);
   const [similarIdeas, setSimilarIdeas] = useState<Array<{ session_id: string; idea: string; score: number | null; similarity: number }>>([]);
+  const [imageContext, setImageContext] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     if (!idea) return;
 
+    // Lê contexto visual do sessionStorage (gerado na home)
+    const ctx = sessionStorage.getItem("image_context") || null;
+    const preview = sessionStorage.getItem("image_preview") || null;
+    setImageContext(ctx);
+    setImagePreview(preview);
+
     const url = `${API_URL}/analyze`;
     const warmTimeout = setTimeout(() => setWarming(true), 5000);
     fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idea }),
+      body: JSON.stringify({ idea, image_context: ctx }),
       signal: AbortSignal.timeout(120000),
     }).then((res) => {
       clearTimeout(warmTimeout);
@@ -166,6 +174,30 @@ function AnalysisContent() {
         <h1 className="text-2xl font-bold text-white mb-2">Analisando sua ideia</h1>
         <p className="text-zinc-400 italic">"{idea}"</p>
       </div>
+
+      {/* Card do Vision Agent */}
+      {imageContext && (
+        <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-5 mb-6">
+          <div className="flex gap-4">
+            {imagePreview && (
+              <img src={imagePreview} alt="Imagem enviada" className="w-20 h-20 object-cover rounded-lg border border-purple-500/30 flex-shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-purple-400">
+                  <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </span>
+                <span className="text-purple-300 font-semibold text-sm">Vision Agent — GPT-4o</span>
+                <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">Multimodal</span>
+              </div>
+              <p className="text-zinc-400 text-sm leading-relaxed line-clamp-4">{imageContext}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {warming && !error && (
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6 text-yellow-400 flex items-center gap-3">

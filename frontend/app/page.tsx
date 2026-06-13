@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const EXAMPLES = [
   "Aplicativo de delivery de refeições saudáveis focado em academias",
@@ -13,12 +15,59 @@ const EXAMPLES = [
 export default function Home() {
   const [idea, setIdea] = useState("");
   const [loading, setLoading] = useState(false);
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function removeImage() {
+    setImage(null);
+    setImagePreview(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!idea.trim() || loading) return;
     setLoading(true);
+
+    let imageContext = "";
+
+    // Se houver imagem, analisa com Vision Agent primeiro
+    if (image) {
+      setAnalyzingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", image);
+        const res = await fetch(`${API_URL}/analyze-image`, {
+          method: "POST",
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          imageContext = data.description || "";
+        }
+      } catch {}
+      setAnalyzingImage(false);
+    }
+
+    // Guarda image_context no sessionStorage para a página de análise
+    if (imageContext) {
+      sessionStorage.setItem("image_context", imageContext);
+      sessionStorage.setItem("image_preview", imagePreview || "");
+    } else {
+      sessionStorage.removeItem("image_context");
+      sessionStorage.removeItem("image_preview");
+    }
+
     const encoded = encodeURIComponent(idea.trim());
     router.push(`/analysis?idea=${encoded}`);
   }
@@ -64,6 +113,54 @@ export default function Home() {
             rows={4}
             disabled={loading}
           />
+
+          {/* Upload de imagem */}
+          <div className="px-4 pb-2">
+            {imagePreview ? (
+              <div className="flex items-center gap-3 bg-zinc-800/60 rounded-xl p-3">
+                <img src={imagePreview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-zinc-700" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-zinc-300 text-sm font-medium truncate">{image?.name}</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">
+                    {analyzingImage ? (
+                      <span className="text-indigo-400 flex items-center gap-1">
+                        <span className="w-3 h-3 border border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin inline-block" />
+                        Analisando imagem com GPT-4o Vision...
+                      </span>
+                    ) : "Imagem será analisada pelo Vision Agent"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="text-zinc-500 hover:text-red-400 transition-colors p-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-2 text-sm text-zinc-500 hover:text-indigo-400 transition-colors py-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Adicionar imagem do produto/logo (opcional)
+              </button>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleImageChange}
+            />
+          </div>
+
           <div className="flex items-center justify-between px-4 pb-3">
             <span className="text-zinc-500 text-sm">{idea.length} caracteres</span>
             <button
@@ -74,12 +171,10 @@ export default function Home() {
               {loading ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Iniciando...
+                  {analyzingImage ? "Analisando imagem..." : "Iniciando..."}
                 </>
               ) : (
-                <>
-                  Analisar ideia →
-                </>
+                "Analisar ideia →"
               )}
             </button>
           </div>

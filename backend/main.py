@@ -2,7 +2,7 @@ import os
 import uuid
 from dotenv import load_dotenv
 import json
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 load_dotenv(override=True)
 
 from models.schemas import AnalysisRequest, QARequest
-from agents import orchestrator, qa
+from agents import orchestrator, qa, vision
 from tools import report_builder, persistence, rag
 
 app = FastAPI(title="PitchIQ API", version="1.0.0")
@@ -45,6 +45,22 @@ async def health():
     return {"status": "ok"}
 
 
+@app.post("/analyze-image")
+async def analyze_image(file: UploadFile = File(...)):
+    """Analisa uma imagem com GPT-4o Vision e retorna descrição de negócio."""
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Formato não suportado. Use JPG, PNG ou WEBP.")
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Imagem muito grande (máx 10MB).")
+    try:
+        description = await vision.analyze_image(content, file.content_type)
+        return {"description": description}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na análise visual: {str(e)}")
+
+
 @app.post("/analyze")
 async def analyze(req: AnalysisRequest):
     if not req.idea.strip():
@@ -55,7 +71,7 @@ async def analyze(req: AnalysisRequest):
     async def event_stream():
         import json
         yield f"data: {json.dumps({'agent': 'session', 'status': 'start', 'data': session_id})}\n\n"
-        async for event in orchestrator.run_pipeline(req.idea, session_id):
+        async for event in orchestrator.run_pipeline(req.idea, session_id, image_context=req.image_context):
             yield event
 
     return StreamingResponse(

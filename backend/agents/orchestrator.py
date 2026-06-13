@@ -63,9 +63,13 @@ async def _persist_session(session_id: str, session: dict) -> None:
         print(f"[persistence] Erro ao salvar sessão {session_id}: {e}")
 
 
-async def run_pipeline(idea: str, session_id: str) -> AsyncGenerator[str, None]:
+async def run_pipeline(idea: str, session_id: str, image_context: str | None = None) -> AsyncGenerator[str, None]:
     session = {"idea": idea, "research": {}, "report": None, "debate": None, "score": None}
     _sessions[session_id] = session
+
+    # Emite contexto visual se houver imagem
+    if image_context:
+        yield _event("vision", "done", image_context)
 
     # Tenta carregar sessão persistida (retomada após restart)
     saved = persistence.load_session(session_id)
@@ -173,6 +177,7 @@ async def run_pipeline(idea: str, session_id: str) -> AsyncGenerator[str, None]:
             research_ctx,
             _debate_summary(session["debate"]),
             rag_context=rag_context,
+            image_context=image_context or "",
         )
 
         session["report"] = report_result

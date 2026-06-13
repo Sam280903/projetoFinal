@@ -25,10 +25,12 @@ async def run(
     research_summary: str,
     debate_summary: str,
     rag_context: str = "",
+    image_context: str = "",
 ) -> str:
-    rag_block = f"\n\n{rag_context}" if rag_context else ""
+    rag_block   = f"\n\n{rag_context}"   if rag_context   else ""
+    image_block = f"\n\nANÁLISE VISUAL DA IMAGEM ENVIADA:\n{image_context}" if image_context else ""
 
-    context = f"""IDEIA: {idea}
+    context = f"""IDEIA: {idea}{image_block}
 
 PESQUISA:
 {research_summary}
