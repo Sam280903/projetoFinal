@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv(override=True)
 
@@ -16,13 +17,28 @@ app = FastAPI(title="PitchIQ API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://*.vercel.app"],
+    allow_origins=["http://localhost:3000", "https://*.vercel.app", "https://*.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
 )
 
+# ── Diretório do build estático do Next.js ─────────────────────────────────────
+_BASE = os.path.dirname(__file__)
+OUT_DIR = os.path.join(_BASE, "out")
+_has_static = os.path.isdir(OUT_DIR)
+
+
+def _page(path: str):
+    """Retorna a FileResponse para uma página estática do Next.js."""
+    full = os.path.join(OUT_DIR, path)
+    if os.path.isfile(full):
+        return FileResponse(full)
+    return FileResponse(os.path.join(OUT_DIR, "index.html"))
+
+
+# ── Rotas de API ──────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
@@ -38,7 +54,6 @@ async def analyze(req: AnalysisRequest):
 
     async def event_stream():
         import json
-        # Emite o session_id primeiro para o cliente armazenar
         yield f"data: {json.dumps({'agent': 'session', 'status': 'start', 'data': session_id})}\n\n"
         async for event in orchestrator.run_pipeline(req.idea, session_id):
             yield event
@@ -121,13 +136,11 @@ async def get_session(session_id: str):
 
 @app.get("/sessions")
 async def list_sessions():
-    """Lista todas as análises persistidas, da mais recente para a mais antiga."""
     return {"sessions": persistence.list_sessions()}
 
 
 @app.get("/similar/{session_id}")
 async def get_similar(session_id: str):
-    """Retorna até 3 análises similares à sessão especificada."""
     session = orchestrator.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Sessão não encontrada.")
@@ -136,3 +149,31 @@ async def get_similar(session_id: str):
         return {"similar": []}
     similar = await rag.find_similar(idea, exclude_session_id=session_id)
     return {"similar": similar}
+
+
+# ── Frontend estático (Next.js output: export) ────────────────────────────────
+if _has_static:
+    # Assets JS/CSS gerados pelo Next.js
+    app.mount("/_next", StaticFiles(directory=os.path.join(OUT_DIR, "_next")), name="next-assets")
+
+    @app.get("/")
+    async def index():
+        return _page("index.html")
+
+    @app.get("/analysis/")
+    async def analysis_page():
+        return _page("analysis/index.html")
+
+    @app.get("/historico/")
+    async def historico_page():
+        return _page("historico/index.html")
+
+    @app.get("/resultado/{session_id}/")
+    async def resultado_page(session_id: str):
+        # Servir o template gerado para o placeholder; o JS usa a URL real
+        return _page("resultado/placeholder/index.html")
+
+    # Arquivos públicos (favicon, svg, etc.)
+    @app.get("/{filename}")
+    async def public_file(filename: str):
+        return _page(filename)

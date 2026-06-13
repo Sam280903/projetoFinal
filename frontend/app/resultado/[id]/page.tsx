@@ -1,12 +1,16 @@
 "use client";
 
+export function generateStaticParams() {
+  return [{ id: "placeholder" }];
+}
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ReportCard from "@/components/ReportCard";
 import ScoreRadar from "@/components/ScoreRadar";
 import DebateView from "@/components/DebateView";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface Similar {
   session_id: string;
