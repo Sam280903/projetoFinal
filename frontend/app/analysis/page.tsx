@@ -37,6 +37,7 @@ function AnalysisContent() {
   const [phase, setPhase] = useState<"streaming" | "done">("streaming");
   const [activeTab, setActiveTab] = useState<"report" | "debate" | "score">("report");
   const [error, setError] = useState<string | null>(null);
+  const [warming, setWarming] = useState(false);
   const [similarIdeas, setSimilarIdeas] = useState<Array<{ session_id: string; idea: string; score: number | null; similarity: number }>>([]);
 
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -45,11 +46,15 @@ function AnalysisContent() {
     if (!idea) return;
 
     const url = `${API_URL}/analyze`;
+    const warmTimeout = setTimeout(() => setWarming(true), 5000);
     fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idea }),
+      signal: AbortSignal.timeout(120000),
     }).then((res) => {
+      clearTimeout(warmTimeout);
+      setWarming(false);
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -122,6 +127,8 @@ function AnalysisContent() {
 
       pump();
     }).catch(() => {
+      clearTimeout(warmTimeout);
+      setWarming(false);
       setError("Não foi possível conectar ao servidor. Verifique se o backend está rodando.");
     });
   }, [idea]);
@@ -159,6 +166,16 @@ function AnalysisContent() {
         <h1 className="text-2xl font-bold text-white mb-2">Analisando sua ideia</h1>
         <p className="text-zinc-400 italic">"{idea}"</p>
       </div>
+
+      {warming && !error && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6 text-yellow-400 flex items-center gap-3">
+          <svg className="animate-spin h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          Aquecendo o servidor (primeira requisição pode levar até 30s)...
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 text-red-400">
