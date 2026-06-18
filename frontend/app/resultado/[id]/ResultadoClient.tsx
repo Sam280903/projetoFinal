@@ -26,14 +26,12 @@ export default function ResultadoClient() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<"report" | "debate" | "score">("report");
-  const [realSessionId, setRealSessionId] = useState<string>(id);
 
   useEffect(() => {
     const sessionId = typeof window !== "undefined"
       ? window.location.pathname.split("/resultado/")[1]?.split("/")[0] || id
       : id;
     if (!sessionId || sessionId === "placeholder") return;
-    setRealSessionId(sessionId);
     fetch(`${API_URL}/session/${sessionId}`)
       .then((r) => {
         if (r.status === 404) { setNotFound(true); return null; }
@@ -164,7 +162,7 @@ export default function ResultadoClient() {
       </div>
 
       {activeTab === "report" && session.report && (
-        <ReportCard report={session.report} sessionId={realSessionId} />
+        <ReportCard report={session.report} sessionId={id} />
       )}
       {activeTab === "debate" && (
         <DebateView
